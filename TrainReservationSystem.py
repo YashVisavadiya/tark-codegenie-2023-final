@@ -1,9 +1,18 @@
+import collections
+
 map_Coaches = {
     "1A": "H",
     "2A": "A",
     "3A": "B",
     "SL": "S"
 }
+map_Coaches_with_Price = {
+    "1A": 4,
+    "2A": 3,
+    "3A": 2,
+    "SL": 1
+}
+
 
 # This function is used to arrange basic train details of a train (like Source - Destination - Distance ) into an
 # object and return it
@@ -55,20 +64,60 @@ def check_if_train_available(request):
 def check_if_seats_available(request):
     for train in reservationSystem.TrainDetails:
         if train["Source"] == request["Source"] and train["Destination"] == request["Destination"]:
-            train.setdefault(request["Date"], train["Coaches"])
-            if train["Date"][request["Coach"]] >= request["Seats"]:
-                return True
-    return False
+            train.setdefault(request["Date"], dict(train["Coaches"]))
+
+            # print(request["Date"], train[request["Date"]])
+
+            group = collections.defaultdict(int)
+            for coach, seats in train[request["Date"]].items():
+                group[coach[0]] += seats
+
+            # print(group)
+            req_seats = request["Seats"]
+            if len(group) != len(train[request["Date"]].items()):
+                for coach, seats in group.items():
+                    if coach == map_Coaches[request["Coach"]]:
+                        if seats >= req_seats:
+                            # Set DS
+                            for c, s in train[request["Date"]].items():
+                                if c[0] == coach:
+                                    if s >= req_seats:
+                                        train[request["Date"]][c] -= req_seats
+                                        return (True, train["Distance"] * map_Coaches_with_Price[request["Coach"]] * request["Seats"])
+                                    else:
+                                        req_seats -= train[request["Date"]][c]
+                                        train[request["Date"]][c] = 0
+
+                            return (True, train["Distance"] * map_Coaches_with_Price[request["Coach"]] * request["Seats"])
+
+                        return (False, 0)
+                pass
+
+            # Check if required coach having required seats
+            for coach, seats in train[request["Date"]].items():
+                if map_Coaches[request["Coach"]] == coach[0]:
+                    if seats >= request["Seats"]:
+                        train[request["Date"]][coach] -= request["Seats"]
+
+                        # print(train[request["Date"]][coach], train[request["Date"]])
+                        print(train)
+
+                        return (True, train["Distance"] * map_Coaches_with_Price[request["Coach"]] * request["Seats"])
+
+    return (False, 0)
 
 
 def check_reservation_is_possible(request):
     if not check_if_train_available(request):
         print("No Trains Available")
-        return False
-    if not check_if_seats_available(request):
+        return (False, 0)
+
+    # is_possible is true then we have enough seats
+    is_possible, total_fair = check_if_seats_available(request)
+    if not is_possible:
         print("No Seats Available")
-        return False
-    return True
+        return (False, 0)
+    return (True, total_fair)
 
 
 def calculate_fair(request):
@@ -139,16 +188,54 @@ if __name__ == "__main__":
     # Taking Input for Reservation System
     reservationSystem.take_input_trains()
 
-    reservationSystem.print_all_details()
+    # reservationSystem.print_all_details()
     # print(reservationSystem.TrainDetails)
 
     report = Report()
 
-    # while True:
-    #     reservation_request = take_input_for_train_reservation()
-    #     if check_reservation_is_possible(reservation_request):
-    #         total_fair = calculate_fair(reservation_request)
-    #         report.add_to_log(total_fair)
-    #         pass
+    while True:
+        reservation_request = take_input_for_train_reservation()
+
+        is_possible, total_fair = check_reservation_is_possible(reservation_request)
+        if is_possible:
+            # Calculate Total Fair
+            # total_fair = calculate_fair(reservation_request)
+
+            # Print Output
+            print(report.next_PNR, total_fair)
+
+            # Add it to report
+            report.add_to_log(total_fair)
+            pass
 
     pass
+
+# 4
+# 37393 Ahmedabad-0 Pune-700
+# 37393 S1-72 S2-72 B1-72 A1-48 H1-24
+# 17726 Rajkot-0 Mumbai-750
+# 17726 S1-72 S2-72 B1-72 A1-48 H1-24
+# 22548 Ahmedabad-0 Surat-300
+# 22548 S1-15 S2-20 B1-36 B2-48
+# 72097 Mumbai-0 Jaipur-1000
+# 72097 S1-15 S2-20 B1-25 H1-10
+
+# Ahmedabad Pune 2023-03-15 SL 3
+# Rajkot Surat 2023-02-21 3A 4
+# Ahmedabad Surat 2023-02-23 1A 5
+# Ahmedabad Pune 2023-03-23 SL 15
+# Ahmedabad Pune 2023-03-23 SL 15
+# Ahmedabad Pune 2023-03-23 SL 10
+# Ahmedabad Pune 2023-03-23 1A 10
+# Ahmedabad Pune 2023-03-23 1A 5
+# Ahmedabad Pune 2023-03-23 1A 5
+# Mumbai Jaipur 2023-03-23 SL 2
+# Mumbai Jaipur 2023-03-23 SL 5
+# Mumbai Jaipur 2023-03-23 SL 7
+# Mumbai Jaipur 2023-03-23 3A 1
+# Mumbai Jaipur 2023-03-23 3A 2
+# Mumbai Jaipur 2023-03-23 3A 4
+# Ahmedabad Pune 2023-03-26 SL 72
+# Ahmedabad Pune 2023-03-26 SL 36
+# Ahmedabad Surat 2023-03-18 SL 25
+# Ahmedabad Surat 2023-03-18 SL 11
